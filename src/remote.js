@@ -64,7 +64,7 @@ export function generateUpdateBody(fullRemote) {
   return `Hello!
   The remote \`${fullRemote}\` has some new changes that aren't in this fork.
 
-  So, here they are, ready to be merged. :partyparrot:
+  So, here they are, ready to be merged. :tada:
   
   If this pull request can be merged without conflict, you can publish your software with these new changes. If not, this branch is a great place to fix any issues.
 
@@ -167,7 +167,7 @@ export function isParentFindForks(req, res) {
       });
     });
 
-    Promise.all(pullreqs).then(reqs => {
+    return Promise.all(pullreqs).then(reqs => {
       let madePRs = reqs.filter(i => i); // all truthy pull requests
       res.send(`Opened ${madePRs.length} pull requests on forks of this repository.`);
     });
