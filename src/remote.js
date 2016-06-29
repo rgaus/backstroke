@@ -64,7 +64,7 @@ export function generateUpdateBody(fullRemote) {
   return `Hello!
   The remote \`${fullRemote}\` has some new changes that aren't in this fork.
 
-  So, here they are in an easy pull request to be merged in!
+  So, here they are, ready to be merged. :partyparrot:
   
   If this pull request can be merged without conflict, you can publish your software with these new changes. If not, this branch is a great place to fix any issues.
 
@@ -155,7 +155,7 @@ export function isParentFindForks(req, res) {
     let pullreqs = forks.map(fork => {
       return hasDivergedFromUpstream(
         "github",
-        rork.owner.login, // user
+        fork.owner.login, // user
         fork.name         // repo
       ).then(({repo, diverged, upstreamSha}) => {
         if (diverged) {
