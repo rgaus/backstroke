@@ -2,6 +2,7 @@
 Backstroke
 ===
 A Github bot to keep a fork updated with any changes made to its upstream.
+Heavily inspired by Greenkeeper.
 
 ## Add Backstroke to a repository
 1. Create a webhook in either a fork or a upstream repository. (`Settings` => `Webhooks & Services` => `Add Webhook`)
@@ -9,7 +10,7 @@ A Github bot to keep a fork updated with any changes made to its upstream.
 4. Create the webhook, and push some code to the upstream repository to see Backstroke in action.
 
 ## How it works
-![How Backstroke Works](https://rawgit.com/1egoman/backstroke/master/assets/map.svg)
+![How Backstroke Works](https://raw.githubusercontent.com/1egoman/backstroke/master/assets/map.png)
 
 ### For a contributor
 1. You push code to Github.
@@ -23,8 +24,8 @@ A Github bot to keep a fork updated with any changes made to its upstream.
 3. They accept Backstroke's pull request, and you merge in their code.
 
 ## FAQ
-- **Which I don't see any pull requests on the upstream....**: Pull requests are
-  always proposed on the forks. Take a look there.
+- **I don't see any pull requests on the upstream....**: Pull requests are
+  always proposed on forks. Take a look there instead.
 
 - **Why isn't Backstroke working?**: Take a look at the webhook response logs. Most likely, you'll see an error. Otherwise, open an issue.
 
