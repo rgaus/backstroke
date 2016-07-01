@@ -12,17 +12,9 @@ if (process.env.GITHUB_TOKEN) {
   console.warn("Warning: No github token specified.");
 }
 
-let gh = {
-  reposGet: Promise.promisify(github.repos.get),
-  reposGetBranch: Promise.promisify(github.repos.getBranch),
-  reposGetForks: Promise.promisify(github.repos.getForks),
-  pullRequestsCreate: Promise.promisify(github.pullRequests.create),
-  pullRequestsGetAll: Promise.promisify(github.pullRequests.getAll),
-
-  reposCreateHook: Promise.promisify(github.repos.createHook),
-  reposFork: Promise.promisify(github.repos.fork),
-  reposGetCollaborators: Promise.promisify(github.repos.getCollaborators),
-};
+// import the libraries that are required for communication
+import * as ghFactory from './github';
+let gh = ghFactory.constructor(github);
 
 // has the given fork diverged from its parent?
 export function hasDivergedFromUpstream(platform, user, repo) {
@@ -81,23 +73,18 @@ export function generateUpdateBody(fullRemote, tempRepoName) {
   `
 }
 
-// take the parent and create a new repo to mirror its contents.
-export function cloneParentToRepo(repo) {
-  // Fork the upstream repo.
-  gh.reposFork({
-    user: repo.parent.owner.login,
-    repo: repo.parent.name,
-    // organisation: "backstroke-upstream",
-  }).then(fork => {
-    // Get all repo contributors.
-    return gh.reposGetCollaborators({
-      user: repo.parent.owner.login,
-      repo: repo.parent.name,
-    });
-  }).then(collabs => {
-    // give all collaborators rights to the repo
-    return
-  });
+// does a user want to opt out of receiving backstroke PRs?
+export function didUserOptOut(platform, user, repo) {
+  switch (platform) {
+    case "github":
+      return gh.searchIssues({
+        q: `repo:${user}/${repo} is:pr label:optout`,
+      }).then(issues => {
+        return issues.total_count > 0;
+      });
+    default:
+      return Promise.reject(`No such platform ${platform}`);
+  }
 }
 
 // given a platform and a repository, open the pr to update it to its upstream.
@@ -113,7 +100,7 @@ export function postUpdate(platform, repo, upstreamSha) {
             head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
           }).then(existingPulls => {
             // are we trying to reintroduce a pull request that has already been
-            // cancelled by the user earlier?
+            // made previously?
             let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
             if (!duplicateRequests) {
               console.log("Making pull to", repo.owner.login, repo.name);
@@ -158,40 +145,58 @@ export function webhook(req, res) {
 }
 
 export function isForkMergeUpstream(req, res) {
-  hasDivergedFromUpstream(
-    "github",
-    req.body.repository.owner.login,
-    req.body.repository.name
-  ).then(({repo, diverged, upstreamSha}) => {
+  let userName = req.body.repository.owner.name || req.body.repository.owner.login,
+      repoName = req.body.repository.name;
+  didUserOptOut("github", userName, repoName).then(didOptOut => {
+    // don't bug opted out users
+    if (didOptOut) {
+      console.log(`Repo ${userName}/${repoName} opted out D:`);
+      return {repo: null, diverged: false};
+    } else {
+      // otherwise, keep going...
+      return hasDivergedFromUpstream("github", userName, repoName);
+    }
+  }).then(({repo, diverged, upstreamSha}) => {
     if (diverged) {
       // make a pull request
-      return postUpdate("github", repo, upstreamSha);
+      return postUpdate("github", repo, upstreamSha).then(ok => {
+        res.send("Cool, thanks github.");
+      });
     } else {
-      res.send("Thanks anyway, but we don't care about that event.");
+      res.send("Thanks anyway, but the user either opted out or this isn't an imporant event.");
     }
-  }).then(ok => {
-    res.send("Cool, thanks github.");
   }).catch(err => {
     res.send(`Uhh, error: ${err}`);
   });
 }
 
 export function isParentFindForks(req, res) {
+  let userName = req.body.repository.owner.name || req.body.repository.owner.login,
+      repoName = req.body.repository.name;
   gh.reposGetForks({
-    user: req.body.repository.owner.name,
-    repo: req.body.repository.name,
+    user: userName,
+    repo: repoName,
   }).then(forks => {
     let pullreqs = forks.map(fork => {
-      return hasDivergedFromUpstream(
-        "github",
-        fork.owner.login, // user
-        fork.name         // repo
-      ).then(({repo, diverged, upstreamSha}) => {
+      didUserOptOut("github", fork.owner.login, fork.name).then(didOptOut => {
+        // don't bug opted out users
+        if (didOptOut) {
+          console.log(`Repo ${fork.owner.login}/${fork.name} opted out D:`);
+          return {repo: null, diverged: false};
+        } else {
+          // otherwise, keep going...
+          return hasDivergedFromUpstream(
+            "github",
+            fork.owner.login, // user
+            fork.name         // repo
+          );
+        }
+      }).then(({repo, diverged, upstreamSha}) => {
         if (diverged) {
           // make a pull request
           return postUpdate("github", repo, upstreamSha);
         } else {
-          return null;
+          res.send("User opted out or upstream doesn't diverge.");
         }
       });
     });
